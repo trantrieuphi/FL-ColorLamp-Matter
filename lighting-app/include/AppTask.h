@@ -38,6 +38,8 @@ public:
     void ControlCMD(fl_data_t data);
     uint8_t UpdateDevice(uint8_t dpid,const uint8_t value[], unsigned short length);
     unsigned char HandleBrightValue(char channel, const unsigned char value[], unsigned short length);
+    // unsigned char HandleMinBrightValue(char channel, const unsigned char value[], unsigned short length);
+    // unsigned char HandleMaxBrightValue(char channel, const unsigned char value[], unsigned short length);
     unsigned char HandleOnOffValue(char channel, const unsigned char value[], unsigned short length);
     unsigned char HandleHSL(char channel, const unsigned char value[], unsigned short length);
     void UpdateClusterState(void);

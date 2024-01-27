@@ -68,8 +68,6 @@ void AppTask::PowerOnFactoryReset(void)
 extern	k_msgq		queue_data_tx;
 extern	k_msgq		queue_data_rx;
 
-HsvColor_t sHSV;
-HSLColor_t sHSL;
 
 bool CheckACK = false;
 
@@ -323,31 +321,25 @@ unsigned char AppTask::HandleBrightValue(char channel, const unsigned char value
 
         if(ret == 1)
         {
+            if(level == 0 && sAppTask.mDimmerDevice.IsTurnedOn()){
+                Clusters::OnOff::Attributes::OnOff::Set(kExampleEndpointId, false);
+            }
             Clusters::LevelControl::Attributes::CurrentLevel::Set(kExampleEndpointId, level);
-            // if(level == 0 && sAppTask.mDimmerDevice.IsTurnedOn()){
-            //     Clusters::OnOff::Attributes::OnOff::Set(kExampleEndpointId, sAppTask.mDimmerDevice.IsTurnedOn());
-            // }
+            
             // else if(level != 0 && !sAppTask.mDimmerDevice.IsTurnedOn()){
             //     Clusters::OnOff::Attributes::OnOff::Set(kExampleEndpointId, sAppTask.mDimmerDevice.IsTurnedOn());
             // }
         }
     } else if(sAppTask.mDimmerDevice.GetType() == kTypeLight_ColorControl){
-        HSLColor_t sHSLtemp;
-        sHSLtemp.level = mcu_get_dp_download_value(value,length);
-        if(sHSLtemp.level == sAppTask.mDimmerDevice.GetColor().level){
-            return 0;
-        }
-        sHSL.level = sHSLtemp.level;
-        sHSV.v = sHSLtemp.level*255/(sAppTask.mDimmerDevice.MAX_BRIGHTNESS_COLOR);
-        sHSV.v = (sHSV.v >= 255)? 254: sHSV.v;
-        ret = sAppTask.mDimmerDevice.UpdateFromHardware(DeviceDimmer::LEVEL_ACTION, AppEvent::kEventType_Lighting, (uint8_t *) &sHSL.level);
+        uint8_t level = (mcu_get_dp_download_value(value,length) * 255)/ sAppTask.mDimmerDevice.MAX_BRIGHTNESS_COLOR;
+        level = (level >= 255)? 254: level;
+        ret = sAppTask.mDimmerDevice.UpdateFromHardware(DeviceDimmer::LEVEL_ACTION, AppEvent::kEventType_Lighting, &level);
         if(ret == 1)
         {
-            
-            if(sHSV.v == 0 && sAppTask.mDimmerDevice.IsTurnedOn()){
+            if(level == 0 && sAppTask.mDimmerDevice.IsTurnedOn()){
                 Clusters::OnOff::Attributes::OnOff::Set(kExampleEndpointId, false);
             } 
-            Clusters::LevelControl::Attributes::CurrentLevel::Set(kExampleEndpointId, sHSV.v);
+            Clusters::LevelControl::Attributes::CurrentLevel::Set(kExampleEndpointId, level);
             // else if(sHSV.v != 0 && !sAppTask.mDimmerDevice.IsTurnedOn()){
             //     Clusters::OnOff::Attributes::OnOff::Set(kExampleEndpointId, sAppTask.mDimmerDevice.IsTurnedOn());
             // }
@@ -359,50 +351,40 @@ unsigned char AppTask::HandleBrightValue(char channel, const unsigned char value
     return ret;
     
 }
+// unsigned char AppTask::HandleMinBrightValue(char channel, const unsigned char value[], unsigned short length)
+// {
+// }
+
+// unsigned char AppTask::HandleMaxBrightValue(char channel, const unsigned char value[], unsigned short length)
+// {
+// }
+
 
 unsigned char AppTask::HandleHSL(char channel, const unsigned char value[], unsigned short length)
 {
     uint8_t ret = 0;
     using namespace Clusters;
     if(sAppTask.mDimmerDevice.GetType() == kTypeLight_ColorControl) {
-        // sHSL.hue = mcu_get_dp_download_value_2byte(value, length);
-        // sHSV.h = sHSL.hue*255/(sAppTask.mDimmerDevice.MAX_BRIGHTNESS_COLOR);
-        // sHSL.saturation = mcu_get_dp_download_value_2byte(value + 2, length);
-        // sHSV.s = sHSL.saturation*255/(sAppTask.mDimmerDevice.MAX_BRIGHTNESS_COLOR);
-        // sHSL.level = mcu_get_dp_download_value_2byte(value + 4, length);
-        // sHSV.v = sHSL.level*255/(sAppTask.mDimmerDevice.MAX_BRIGHTNESS_COLOR);
-        // sAppTask.mDimmerDevice.UpdateFromHardware(DeviceDimmer::LEVEL_ACTION, AppEvent::kEventType_Lighting, (uint8_t *) &sHSL.level);
-        // if(ret == 1)
-        // {
-            // Clusters::ColorControl::Attributes::CurrentHue::Set(kExampleEndpointId, sHSV.h);
-            // Clusters::ColorControl::Attributes::CurrentSaturation::Set(kExampleEndpointId, sHSV.s);
-        //     Clusters::LevelControl::Attributes::CurrentLevel::Set(kExampleEndpointId, sHSV.v);
-        // }
-        HSLColor_t sHSLtemp;
-        sHSLtemp.level = mcu_get_dp_download_value_2byte(value + 4, length);
-        if(sHSLtemp.level == sAppTask.mDimmerDevice.GetColor().level){
-            return 0;
-        }
-        sHSL.level = sHSLtemp.level;
-        sHSV.v = sHSLtemp.level*255/(sAppTask.mDimmerDevice.MAX_BRIGHTNESS_COLOR);
-        sHSV.v = (sHSV.v >= 255)? 254: sHSV.v;
-        ret = sAppTask.mDimmerDevice.UpdateFromHardware(DeviceDimmer::LEVEL_ACTION, AppEvent::kEventType_Lighting, (uint8_t *) &sHSL.level);
+        uint16_t hue = (mcu_get_dp_download_value_2byte(value,length)* 255)/sAppTask.mDimmerDevice.MAX_BRIGHTNESS_COLOR;
+        uint16_t saturation = (mcu_get_dp_download_value_2byte(value+2,length)* 255)/sAppTask.mDimmerDevice.MAX_BRIGHTNESS_COLOR;
+        uint16_t lightness = (mcu_get_dp_download_value_2byte(value+4,length)* 255)/sAppTask.mDimmerDevice.MAX_BRIGHTNESS_COLOR;
+        HsvColor_t hsv;
+        hsv.h = (hue >= 255)? 254: hue;
+        hsv.s = (saturation >= 255)? 254: saturation;
+        hsv.v = (lightness >= 255)? 254: lightness;
+
+        ret = sAppTask.mDimmerDevice.UpdateFromHardware(DeviceDimmer::COLOR_ACTION_HSV, AppEvent::kEventType_Lighting, (uint8_t*)&hsv);
         if(ret == 1)
         {
-            if(sHSV.v == 0 && sAppTask.mDimmerDevice.IsTurnedOn()){
+            if(hsv.v == 0 && sAppTask.mDimmerDevice.IsTurnedOn()){
                 Clusters::OnOff::Attributes::OnOff::Set(kExampleEndpointId, false);
-            } 
-            Clusters::LevelControl::Attributes::CurrentLevel::Set(kExampleEndpointId, sHSV.v);
-            
-            // else if(sHSV.v != 0 && !sAppTask.mDimmerDevice.IsTurnedOn()){
-            //     Clusters::OnOff::Attributes::OnOff::Set(kExampleEndpointId, sAppTask.mDimmerDevice.IsTurnedOn());
-            // }
+            }
+            Clusters::LevelControl::Attributes::CurrentLevel::Set(kExampleEndpointId, hsv.v);
+
         }
-        
+
     }
-
-
-    
+    return ret;
 }
 
 uint8_t AppTask::UpdateDevice(uint8_t dpid,const uint8_t value[], unsigned short length)
@@ -421,7 +403,7 @@ uint8_t AppTask::UpdateDevice(uint8_t dpid,const uint8_t value[], unsigned short
         return ret;
     }
     else if(dpid == (DPID_BRIGHTNESS_MIN_1 + channel*16)){
-        // ret = dp_download_brightness_min_handle(channel,value,length);
+        // ret = AppTask::HandleMinBrightValue(channel,value,length);
         return ret;
     }
     else if(dpid == (DPID_LED_TYPE_1 + channel*16)){
@@ -429,7 +411,7 @@ uint8_t AppTask::UpdateDevice(uint8_t dpid,const uint8_t value[], unsigned short
         return ret;
     }
     else if(dpid == (DPID_BRIGHTNESS_MAX_1 + channel*16)){
-        // ret = dp_download_brightness_max_handle(channel,value,length);
+        // ret = AppTask::HandleMaxBrightValue(channel,value,length);
         return ret;
     }
     else if(dpid == (DPID_TRANSACTION_1 +channel*16)){

@@ -264,7 +264,7 @@ CHIP_ERROR AppTaskCommon::StartApp(void)
         event.Handler = [](AppEvent *) { parking_message(); };
         GetAppTask().PostEvent(&event);
     }, nullptr);
-    k_timer_start(&parking_message_timer, K_MSEC(100), K_MSEC(100));
+    k_timer_start(&parking_message_timer, K_MSEC(50), K_MSEC(50));
 
     k_timer_init(&handle_uart_event_timer, [](k_timer * timer) {
         AppEvent event;
@@ -272,7 +272,7 @@ CHIP_ERROR AppTaskCommon::StartApp(void)
         event.Handler = [](AppEvent *) { GetAppTask().HandleUartCallback(); };
         GetAppTask().PostEvent(&event);
     }, nullptr);
-    k_timer_start(&handle_uart_event_timer, K_MSEC(30), K_MSEC(30));
+    k_timer_start(&handle_uart_event_timer, K_MSEC(20), K_MSEC(20));
     // if not init app, init app
     if (!IsInitApp) {
         k_timer_init(&update_number_device_timer, [](k_timer * timer) {

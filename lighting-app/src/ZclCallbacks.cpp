@@ -151,5 +151,5 @@ void emberAfOnOffClusterInitCallback(EndpointId endpoint)
     //     // Set actual state to stored before reboot
     //     GetAppTask().GetDimmerDevice().Set(storedValue);
     // }
-    // GetAppTask().UpdateClusterState();
+    // GetAppTask().SetInitiateAction(DeviceDimmer::ON_ACTION, static_cast<int32_t>(AppEvent::kEventType_Lighting), (uint8_t *) &storedValue);
 }

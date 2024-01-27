@@ -62,9 +62,9 @@ CHIP_ERROR DeviceDimmer::Init(const char * szDeviceName, const char * szLocation
         mLevel = level;
         mMinLevel = min;
         mMaxLevel = max;
-        mColor.hue = 0;
-        mColor.saturation = 0;
-        mColor.level = 0;
+        mHsvColor.h = 0;
+        mHsvColor.s = 0;
+        mHsvColor.v = 0;
         // print_uart("Init RGB");
     }
     else
@@ -74,9 +74,9 @@ CHIP_ERROR DeviceDimmer::Init(const char * szDeviceName, const char * szLocation
         mLevel = level;
         mMinLevel = min;
         mMaxLevel = max;
-        mColor.hue = 0;
-        mColor.saturation = 0;
-        mColor.level = 0;
+        mHsvColor.h = 0;
+        mHsvColor.s = 0;
+        mHsvColor.v = 0;
         // print_uart("default init");
     }
 
@@ -110,16 +110,15 @@ void DeviceDimmer::SetLevel(uint8_t aLevel)
     mLevel = aLevel;
     if(mType == kTypeLight_ColorControl)
     {
-        mColor.level = aLevel*MAX_BRIGHTNESS_COLOR/254;
+        mHsvColor.v = aLevel;
     }
 
-    ChipLogProgress(Zcl, "Set LED level to %u", aLevel);
 }
 
-void DeviceDimmer::SetColor(uint16_t hue, uint16_t saturation)
+void DeviceDimmer::SetHSVColor(uint8_t hue, uint8_t saturation)
 {
-    mColor.hue        = hue;
-    mColor.saturation = saturation;
+    mHsvColor.h = hue;
+    mHsvColor.s = saturation;
     ChipLogProgress(Zcl, "Set LED color to %u, %u", hue, saturation);
 }
 
@@ -161,10 +160,6 @@ bool DeviceDimmer::InitiateAction(Action_t aAction, int32_t aActor, uint8_t * va
             new_state = kState_On;
         }
     }
-    // else if()
-    // {
-    //     action_initiated = true;
-    // }
 
     if (action_initiated)
     {
@@ -187,18 +182,19 @@ bool DeviceDimmer::InitiateAction(Action_t aAction, int32_t aActor, uint8_t * va
             {
                 SetLevel(value[0]);
                 int DPID_COLOR_HSV_1 = DPID_BRIGHT_VALUE_1;
-                unsigned long level = this->GetColor().level;
+                unsigned long level = (this->GetHSVColor().v*MAX_BRIGHTNESS_COLOR)/254;
                 mcu_dp_value_update(DPID_COLOR_HSV_1, level);
             }
             
         }
         else if (aAction == COLOR_ACTION_HSV && mType == kTypeLight_ColorControl)
         {
-            uint16_t hue = value[0]*MAX_BRIGHTNESS_COLOR/254;
-            uint16_t saturation = value[1]*MAX_BRIGHTNESS_COLOR/254;
-            SetColor(hue, saturation);
+            SetHSVColor(value[0], value[1]);
+            uint16_t hue = (this->GetHSVColor().h*MAX_BRIGHTNESS_COLOR)/254;
+            uint16_t saturation = (this->GetHSVColor().s*MAX_BRIGHTNESS_COLOR)/254;
+            uint16_t lightness = (this->GetHSVColor().v*MAX_BRIGHTNESS_COLOR)/254;
             int DPI_COLOR_HSV_1 = DPID_CCT_OR_HSL_1;
-            mcu_dp_hsl_value_update(DPI_COLOR_HSV_1, this->GetColor().hue, this->GetColor().saturation, this->GetColor().level);
+            mcu_dp_hsl_value_update(DPI_COLOR_HSV_1, hue, saturation, lightness);
         }
 
     }
@@ -208,83 +204,91 @@ bool DeviceDimmer::InitiateAction(Action_t aAction, int32_t aActor, uint8_t * va
 bool DeviceDimmer::UpdateFromHardware(Action_t aAction, int32_t aActor, uint8_t * value)
 {
     bool action_initiated = false;
-    State_t new_state;
-
-    // using namespace Clusters;
-    // Initiate On/Off Action only when the previous one is complete.
-    if (mState == kState_Off && aAction == ON_ACTION)
+    switch (aAction)
     {
+    case ON_ACTION:
+        if(mState == kState_On)
+        {
+            return false;
+        }
+        Set(true);
         action_initiated = true;
-        Set(kState_On);
-    }
-    else if (mState == kState_On && aAction == OFF_ACTION)
-    {
+        break;
+    case OFF_ACTION:
+        if(mState == kState_Off)
+        {
+            return false;
+        }
+        Set(false);
         action_initiated = true;
-        Set(kState_Off);
-    }
-    else if (aAction == LEVEL_ACTION )
-    {
+        break;
+    case LEVEL_ACTION:
         if(mType == kTypeLight_LevelControl)
         {
-            if(value[0] == GetLevel())
+            if(value[0] == this->GetLevel())
             {
                 return false;
             }
-            SetLevel(value[0]);
+            this->SetLevel(value[0]);
             if(value[0] == 0 && mState == kState_On)
             {
-                Set(false);
+                this->Set(false);
             }
             else if(value[0] != 0 && mState == kState_Off)
             {
-                Set(true);
+                this->Set(true);
             }
             action_initiated = true;
         }
         else if(mType == kTypeLight_ColorControl)
         {
-            uint16_t level = value[0] << 8 | value[1];
-            if(level == GetColor().level)
+            uint8_t level = value[0];
+            if(level == this->GetHSVColor().v)
             {
                 return false;
             }
-            SetLevel(level);
+            this->SetLevel(level);
             if(level == 0 && mState == kState_On)
             {
-                Set(false);
+                this->Set(false);
             }
             else if(level != 0 && mState == kState_Off)
             {
-                Set(true);
+                this->Set(true);
             }
             action_initiated = true;
         }
-        
-    }
-    else if(aAction == COLOR_ACTION_HSV && mType == kTypeLight_ColorControl){
-        // hue is 2 bytes value[0] and value[1]
-        // saturation is 2 bytes value[2] and value[3]
-        // level is 2 bytes value[4] and value[5]
-        uint16_t hue = value[0] << 8 | value[1];
-        uint16_t saturation = value[2] << 8 | value[3];
-        uint16_t lightness = value[4] << 8 | value[5];
-        if(hue == GetColor().hue && saturation == GetColor().saturation && lightness == GetColor().level)
-        {
-            return false;
-        }
-        SetColor(hue, saturation);
-        SetLevel(lightness);
-        if(lightness == 0 && mState == kState_On)
-        {
-            Set(false);
-        }
-        else if(lightness != 0 && mState == kState_Off)
-        {
-            Set(true);
-        }
+        break;
 
-        action_initiated = true;
-
+    case COLOR_ACTION_HSV:
+        if(mType == kTypeLight_ColorControl)
+        {
+            uint8_t hue = value[0];
+            uint8_t saturation = value[1];
+            uint8_t level = value[2];
+            // if(hue == this->GetHSVColor().h && saturation == this->GetHSVColor().s && level == this->GetHSVColor().v)
+            // {
+            //     return false;
+            // }
+            if(level == this->GetHSVColor().v)
+            {
+                return false;
+            }
+            this->SetLevel(level);
+            if(level == 0 && mState == kState_On)
+            {
+                this->Set(false);
+            }
+            else if(level != 0 && mState == kState_Off)
+            {
+                this->Set(true);
+            }
+            action_initiated = true;
+            // this->SetHSVColor(hue, saturation);
+        }
+        break;
+    default:
+        break;
     }
 
     return action_initiated;

@@ -1,0 +1,5 @@
+# Ignore third_party folder
+third_party/
+
+# Ignore build folder
+build/

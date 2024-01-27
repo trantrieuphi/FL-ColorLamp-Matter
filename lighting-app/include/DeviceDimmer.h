@@ -23,6 +23,8 @@
 #include <system/SystemError.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
+#include "ColorFormat.h"
+
 
 #include <cstdint>
 
@@ -60,6 +62,8 @@ public:
         ON_ACTION = 0,
         OFF_ACTION,
         LEVEL_ACTION,
+        MIN_LEVEL_ACTION,
+        MAX_LEVEL_ACTION,
         COLOR_ACTION_XY,
         COLOR_ACTION_HSV,
         COLOR_ACTION_CT,
@@ -81,7 +85,7 @@ public:
         kBreatheType_Falling,
         kBreatheType_Both,
     };
-    const unsigned long MAX_BRIGHTNESS_COLOR = 65535;
+    const unsigned long MAX_BRIGHTNESS_COLOR = 0xffff;
     using DimmerCallback_fn      = void (*)(Action_t, int32_t);
     using DimmerTimerCallback_fn = void (*)(k_timer *);
 
@@ -91,7 +95,7 @@ public:
     uint8_t GetLevel(void) const { return mLevel; }
     uint8_t GetMinLevel(void) const { return mMinLevel; }
     uint8_t GetMaxLevel(void) const { return mMaxLevel; }
-    HSLColor_t GetColor(void) const { return mColor; }
+    HsvColor_t GetHSVColor(void) const { return mHsvColor; }
     CCTColor_t GetCCTColor(void) const { return CCTColor_t(); }
     TypeLight_t GetType(void) const { return mType; }
     // void SetCallbacks(DimmerCallback_fn aActionInitiated_CB, DimmerCallback_fn aActionCompleted_CB,
@@ -107,7 +111,7 @@ private:
     uint8_t mMinLevel;
     uint8_t mMaxLevel;
     uint8_t mLevel;
-    HSLColor_t mColor;
+    HsvColor_t mHsvColor;
     CCTColor_t mCCTColor;
     char mName[kDeviceNameSize];
     char mLocation[kDeviceLocationSize];
@@ -117,7 +121,8 @@ private:
     DimmerTimerCallback_fn mActionBlinkStateUpdateClb;
 
     void SetLevel(uint8_t level);
-    void SetColor(uint16_t hue, uint16_t saturation);
+    void SetHSVColor(uint8_t hue, uint8_t saturation);
+    void SetColorLevel(uint16_t level);
     void SetCCTColor(uint16_t colorTemperature);
     void UpdateLight(void);
     void ClearAction(void);

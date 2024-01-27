@@ -33,7 +33,7 @@ using namespace chip::app;
 * @return  bcd type data
 */
 extern const struct device *uart1;
-K_MSGQ_DEFINE(queue_data_rx, sizeof(fl_data_t), 10, alignof(fl_data_t));
+K_MSGQ_DEFINE(queue_data_rx, sizeof(fl_data_t), 16, alignof(fl_data_t));
 
 extern uint8_t NUM_LIGHTS;
 extern bool IsChangeNumberDevice; 
